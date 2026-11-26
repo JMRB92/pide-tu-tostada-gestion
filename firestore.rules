@@ -1,0 +1,55 @@
+rules_version = '2';
+service cloud.firestore {
+ match /databases/{database}/documents {
+  function signed(){return request.auth != null;}
+  function admin(){return signed() && request.auth.uid == 'YvonyUCyvEbBs18WWf8MiAUwWYu2';}
+  function p(c,id){return /databases/$(database)/documents/$(c)/$(id);}
+  function member(){return signed() && get(p('members',request.auth.uid)).data.hash == get(p('config','private')).data.hash;}
+  function hex(s){return s is string && s.matches('^[0-9a-f]{64}$');}
+  function txt(s,n){return s is string && s.size()<=n;}
+  function day(d){return get(p('days',d)).data;}
+  function open(d){return d.revision==get(p('config','main')).data.revision && d.open && !d.get('archiving',false) && !d.get('archived',false) && request.time >= d.opensAt && request.time < d.cutoffAt;}
+  function norm(s){return s.lower().replace('[áàäâ]','a').replace('[éèëê]','e').replace('[íìïî]','i').replace('[óòöô]','o').replace('[úùüû]','u').replace('\\s+','');}
+  function ident(o){return hashing.sha256(norm(o.name)+'|'+norm(o.surname)+'|'+o.course+'|'+o.group).toHexString();}
+  function hasGrant(id){return exists(/databases/$(database)/documents/orders/$(id)/grants/$(request.auth.uid));}
+  function freshGrant(id){return get(/databases/$(database)/documents/orders/$(id)/grants/$(request.auth.uid)).data.at > request.time-duration.value(2,'m');}
+  function active(o){return !o.cancelled;}
+  function orderFields(o){return o.keys().hasAll(['id','owner','date','zone','seq','name','surname','course','group','identity','quotaKey','units','initialPrices','notes','allergy','prepared','paid','incident','incidentReason','cancelled','cancelReason','createdAt','updatedAt','version','test']) && o.keys().hasOnly(['id','owner','date','zone','seq','name','surname','course','group','identity','quotaKey','units','initialPrices','notes','allergy','prepared','paid','incident','incidentReason','cancelled','cancelReason','createdAt','updatedAt','version','test']);}
+  function validUnit(o,d,i){return o.units.size()<=i || (o.units[i] is string && o.units[i] in d.products && d.products[o.units[i]].active == true && o.initialPrices[i] == d.products[o.units[i]].price);}
+  function unitsOk(o,d){return o.units is list && o.units.size()>0 && o.units.size()<=8 && o.initialPrices is list && o.initialPrices.size()==o.units.size() && validUnit(o,d,0)&&validUnit(o,d,1)&&validUnit(o,d,2)&&validUnit(o,d,3)&&validUnit(o,d,4)&&validUnit(o,d,5)&&validUnit(o,d,6)&&validUnit(o,d,7);}
+  function validOrder(o,d){return orderFields(o)&&txt(o.name,60)&&o.name.size()>0&&txt(o.surname,100)&&o.surname.size()>0&&txt(o.notes,200)&&txt(o.allergy,200)&&(d.allergyEnabled||o.allergy=='')&&o.course in d.courses&&d.courses[o.course].active&&o.group in d.courses[o.course].groups&&o.zone==d.courses[o.course].zone&&o.identity==ident(o)&&o.quotaKey==o.date+'_'+o.identity&&unitsOk(o,d)&&o.prepared==[]&&o.paid=={}&&o.incident==false&&o.incidentReason==''&&o.cancelled==false&&o.cancelReason==''&&o.test==false&&o.seq is int&&o.seq>0&&o.updatedAt==request.time;}
+  function quotaBefore(k){return exists(p('limits',k))?get(p('limits',k)).data.used:0;}
+  function ledgerBefore(d){return exists(p('daily',d))?get(p('daily',d)).data:{'ESO':0,'CAF':0,'seqESO':0,'seqCAF':0,'products':{},'last':'','lastVersion':0};}
+  function qDelta(o,k){return o!=null&&active(o)&&o.quotaKey==k?o.units.size():0;}
+  function zDelta(o,d,z){return o!=null&&active(o)&&o.date==d&&o.zone==z?o.units.size():0;}
+  function prodDelta(o,d,k){return o!=null&&active(o)&&o.date==d?o.units.size()-o.units.removeAll([k]).size():0;}
+  function seqDelta(old,o,d,z){return o.date==d&&o.zone==z&&(old==null||old.date!=d||old.zone!=z)?1:0;}
+  function quotaLinked(k,id,old,o){let q=getAfter(p('limits',k)).data;return q.last==id&&q.lastVersion==o.version&&q.used==quotaBefore(k)+qDelta(o,k)-qDelta(old,k)&&q.used>=0&&(qDelta(o,k)<=qDelta(old,k)||q.used<=day(o.date).limitUser);}
+  function ledgerLinked(d,id,old,o){let a=getAfter(p('daily',d)).data;let b=ledgerBefore(d);return a.last==id&&a.lastVersion==o.version&&a.ESO==b.ESO+zDelta(o,d,'ESO')-zDelta(old,d,'ESO')&&a.CAF==b.CAF+zDelta(o,d,'CAF')-zDelta(old,d,'CAF')&&a.seqESO==b.seqESO+seqDelta(old,o,d,'ESO')&&a.seqCAF==b.seqCAF+seqDelta(old,o,d,'CAF')&&a.ESO>=0&&a.CAF>=0&&(o.date!=d||o.seq==((old!=null&&old.date==d&&old.zone==o.zone)?old.seq:a['seq'+o.zone]));}
+  function marked(c,k,o){let m=getAfter(p(c,k)).data;return m.last==o.id&&m.lastVersion==o.version;}
+  function linked(old,o){return marked('limits',o.quotaKey,o)&&marked('daily',o.date,o)&&(old==null||old.quotaKey==o.quotaKey||marked('limits',old.quotaKey,o))&&(old==null||old.date==o.date||marked('daily',old.date,o));}
+  function oldOrder(id){return exists(p('orders',id))?get(p('orders',id)).data:null;}
+  function changed(old,o){return old==null?o.version==1:o.version==old.version+1;}
+  function writer(id,old,o){return o.id==id&&o.updatedAt==request.time&&changed(old,o)&&((old==null&&o.owner==request.auth.uid)||(old!=null&&freshGrant(id)));}
+  function prodCheck(k,b,a,old,o,d,conf){return a.products.get(k,0)==b.products.get(k,0)+prodDelta(o,d,k)-prodDelta(old,d,k)&&a.products.get(k,0)>=0&&(prodDelta(o,d,k)<=prodDelta(old,d,k)||conf.products[k].limit==0||a.products.get(k,0)<=conf.products[k].limit);}
+  function itemCheck(units,i,b,a,old,o,conf){return units.size()<=i||prodCheck(units[i],b,a,old,o,conf.date,conf);}
+  function listCheck(units,b,a,old,o,conf){return itemCheck(units,0,b,a,old,o,conf)&&itemCheck(units,1,b,a,old,o,conf)&&itemCheck(units,2,b,a,old,o,conf)&&itemCheck(units,3,b,a,old,o,conf)&&itemCheck(units,4,b,a,old,o,conf)&&itemCheck(units,5,b,a,old,o,conf)&&itemCheck(units,6,b,a,old,o,conf)&&itemCheck(units,7,b,a,old,o,conf);}
+  function ledgerWrite(d){let a=request.resource.data;let b=ledgerBefore(d);let id=a.last;let o=getAfter(p('orders',id)).data;let old=oldOrder(id);let conf=day(d);let prev=old==null?[]:old.units;return a.keys().hasOnly(['ESO','CAF','seqESO','seqCAF','products','last','lastVersion'])&&writer(id,old,o)&&(o.date==d||(old!=null&&old.date==d))&&ledgerLinked(d,id,old,o)&&a.products is map&&a.products.diff(b.products).affectedKeys().hasOnly(o.units.concat(prev))&&listCheck(o.units,b,a,old,o,conf)&&listCheck(prev,b,a,old,o,conf)&&(a.ESO<=b.ESO||conf.limitESO==0||a.ESO<=conf.limitESO)&&(a.CAF<=b.CAF||conf.limitCAF==0||a.CAF<=conf.limitCAF)&&(a.ESO+a.CAF<=b.ESO+b.CAF||conf.limitDay==0||a.ESO+a.CAF<=conf.limitDay);}
+  function quotaWrite(k){let a=request.resource.data;let id=a.last;let o=getAfter(p('orders',id)).data;let old=oldOrder(id);return a.keys().hasOnly(['used','last','lastVersion'])&&a.used is int&&writer(id,old,o)&&(o.quotaKey==k||(old!=null&&old.quotaKey==k))&&quotaLinked(k,id,old,o);}
+  function createOrder(id){let o=request.resource.data;let d=day(o.date);return o.id==id&&id.matches('^[0-9a-f]{32}$')&&o.owner==request.auth.uid&&o.version==1&&o.createdAt==request.time&&open(d)&&validOrder(o,d)&&linked(null,o)&&existsAfter(p('privateOrders',id));}
+  function editOrder(id){let o=request.resource.data;let old=resource.data;let d=day(old.date);return freshGrant(id)&&!old.cancelled&&old.paid=={}&&!d.get('archiving',false)&&!d.get('archived',false)&&request.time<old.createdAt+duration.value(d.editMinutes,'m')&&request.time<d.editAt&&o.id==id&&o.owner==old.owner&&o.createdAt==old.createdAt&&o.version==old.version+1&&o.updatedAt==request.time&&((o.cancelled==true&&o.cancelReason=='Alumno'&&o.diff(old).affectedKeys().hasOnly(['cancelled','cancelReason','version','updatedAt']))||(o.name==old.name&&o.surname==old.surname&&o.course==old.course&&o.group==old.group&&open(day(o.date))&&request.time<day(o.date).editAt&&validOrder(o,day(o.date))))&&linked(old,o);}
+  match /config/{id}{allow read,write: if admin();}
+  match /members/{uid}{allow get: if admin()||(signed()&&request.auth.uid==uid);allow list,delete: if admin();allow create,update: if admin()||(signed()&&request.auth.uid==uid&&request.resource.data.keys().hasOnly(['hash','createdAt'])&&hex(request.resource.data.hash)&&request.resource.data.hash==get(p('config','private')).data.hash&&request.resource.data.createdAt==request.time);}
+  match /days/{id}{allow get: if admin()||member();allow list,write: if admin();}
+  match /daily/{id}{allow get: if admin()||member();allow list,delete: if admin();allow create,update: if admin()||(member()&&ledgerWrite(id));}
+  match /limits/{id}{allow get: if admin()||member();allow list,delete: if admin();allow create,update: if admin()||(member()&&quotaWrite(id));}
+  match /orders/{id}{allow get: if admin()||(member()&&(resource.data.owner==request.auth.uid||hasGrant(id)));allow list,delete: if admin();allow create: if admin()||(member()&&createOrder(id));allow update: if admin()||(member()&&editOrder(id));
+    match /grants/{uid}{allow get: if admin();allow list,delete: if admin();allow create,update: if admin()||(member()&&uid==request.auth.uid&&request.resource.data.keys().hasOnly(['hash','at'])&&hex(request.resource.data.hash)&&request.resource.data.at==request.time&&request.resource.data.hash==get(p('privateOrders',id)).data.hash);}}
+  match /privateOrders/{id}{allow read,delete,update: if admin();allow create: if admin()||(member()&&request.resource.data.keys().hasOnly(['hash'])&&hex(request.resource.data.hash)&&!exists(p('orders',id))&&getAfter(p('orders',id)).data.owner==request.auth.uid&&getAfter(p('recovery',request.resource.data.hash)).data.id==id);}
+  match /recovery/{hash}{allow get: if admin()||(member()&&hex(hash));allow list,update,delete: if admin();allow create: if admin()||(member()&&hex(hash)&&request.resource.data.keys().hasOnly(['id'])&&!exists(p('orders',request.resource.data.id))&&getAfter(p('orders',request.resource.data.id)).data.owner==request.auth.uid&&getAfter(p('privateOrders',request.resource.data.id)).data.hash==hash);}
+  match /statistics/{id}{allow read,write: if admin();}
+  match /maintenance/{id}{allow read,write: if admin();}
+  match /testOrders/{id}{allow read,write: if admin();}
+  match /{document=**}{allow read,write: if false;}
+ }
+}

@@ -1,0 +1,358 @@
+{
+  "products": {
+    "T001": {
+      "name": "Mantequilla",
+      "price": 100,
+      "category": "Tostadas",
+      "active": true,
+      "description": "",
+      "allergens": [],
+      "traces": [],
+      "verified": false,
+      "limit": 0
+    },
+    "T002": {
+      "name": "Paté",
+      "price": 100,
+      "category": "Tostadas",
+      "active": true,
+      "description": "",
+      "allergens": [],
+      "traces": [],
+      "verified": false,
+      "limit": 0
+    },
+    "T003": {
+      "name": "Cachuela",
+      "price": 100,
+      "category": "Tostadas",
+      "active": true,
+      "description": "",
+      "allergens": [],
+      "traces": [],
+      "verified": false,
+      "limit": 0
+    },
+    "T004": {
+      "name": "Tomate y aceite",
+      "price": 100,
+      "category": "Tostadas",
+      "active": true,
+      "description": "",
+      "allergens": [],
+      "traces": [],
+      "verified": false,
+      "limit": 0
+    },
+    "T005": {
+      "name": "Tomate y jamón",
+      "price": 120,
+      "category": "Tostadas",
+      "active": true,
+      "description": "",
+      "allergens": [],
+      "traces": [],
+      "verified": false,
+      "limit": 0
+    },
+    "T006": {
+      "name": "Parisina",
+      "price": 120,
+      "category": "Tostadas",
+      "active": true,
+      "description": "",
+      "allergens": [],
+      "traces": [],
+      "verified": false,
+      "limit": 0
+    },
+    "T007": {
+      "name": "Crema de torta",
+      "price": 130,
+      "category": "Tostadas",
+      "active": true,
+      "description": "",
+      "allergens": [],
+      "traces": [],
+      "verified": false,
+      "limit": 0
+    },
+    "T008": {
+      "name": "Queso de oveja",
+      "price": 130,
+      "category": "Tostadas",
+      "active": true,
+      "description": "",
+      "allergens": [],
+      "traces": [],
+      "verified": false,
+      "limit": 0
+    },
+    "T009": {
+      "name": "Lacón",
+      "price": 130,
+      "category": "Tostadas",
+      "active": true,
+      "description": "",
+      "allergens": [],
+      "traces": [],
+      "verified": false,
+      "limit": 0
+    },
+    "B001": {
+      "name": "Queso",
+      "price": 170,
+      "category": "Bocadillos",
+      "active": true,
+      "description": "",
+      "allergens": [],
+      "traces": [],
+      "verified": false,
+      "limit": 0
+    },
+    "B002": {
+      "name": "Chorizo",
+      "price": 170,
+      "category": "Bocadillos",
+      "active": true,
+      "description": "",
+      "allergens": [],
+      "traces": [],
+      "verified": false,
+      "limit": 0
+    },
+    "B003": {
+      "name": "Jamón",
+      "price": 170,
+      "category": "Bocadillos",
+      "active": true,
+      "description": "",
+      "allergens": [],
+      "traces": [],
+      "verified": false,
+      "limit": 0
+    },
+    "B004": {
+      "name": "Salchichón",
+      "price": 170,
+      "category": "Bocadillos",
+      "active": true,
+      "description": "",
+      "allergens": [],
+      "traces": [],
+      "verified": false,
+      "limit": 0
+    },
+    "B005": {
+      "name": "Beicon",
+      "price": 170,
+      "category": "Bocadillos",
+      "active": true,
+      "description": "",
+      "allergens": [],
+      "traces": [],
+      "verified": false,
+      "limit": 0
+    },
+    "B006": {
+      "name": "Tortilla de patatas",
+      "price": 200,
+      "category": "Bocadillos",
+      "active": true,
+      "description": "",
+      "allergens": [],
+      "traces": [],
+      "verified": false,
+      "limit": 0
+    }
+  },
+  "courses": {
+    "1ESO": {
+      "name": "1.º ESO",
+      "zone": "ESO",
+      "groups": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H"
+      ],
+      "active": true
+    },
+    "2ESO": {
+      "name": "2.º ESO",
+      "zone": "ESO",
+      "groups": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H"
+      ],
+      "active": true
+    },
+    "3ESO": {
+      "name": "3.º ESO",
+      "zone": "ESO",
+      "groups": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H"
+      ],
+      "active": true
+    },
+    "4ESO": {
+      "name": "4.º ESO",
+      "zone": "CAF",
+      "groups": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H"
+      ],
+      "active": true
+    },
+    "1BACH": {
+      "name": "1.º Bachillerato",
+      "zone": "CAF",
+      "groups": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H"
+      ],
+      "active": true
+    },
+    "2BACH": {
+      "name": "2.º Bachillerato",
+      "zone": "CAF",
+      "groups": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H"
+      ],
+      "active": true
+    },
+    "FPB": {
+      "name": "FP Básica",
+      "zone": "CAF",
+      "groups": [
+        ""
+      ],
+      "active": true
+    },
+    "1DIVER": {
+      "name": "1 DIVER",
+      "zone": "CAF",
+      "groups": [
+        ""
+      ],
+      "active": true
+    },
+    "2DIVER": {
+      "name": "2 DIVER",
+      "zone": "CAF",
+      "groups": [
+        ""
+      ],
+      "active": true
+    },
+    "ESPA": {
+      "name": "ESPA",
+      "zone": "CAF",
+      "groups": [
+        ""
+      ],
+      "active": true
+    },
+    "1MC": {
+      "name": "1 MC",
+      "zone": "CAF",
+      "groups": [
+        ""
+      ],
+      "active": true
+    },
+    "2MC": {
+      "name": "2 MC",
+      "zone": "CAF",
+      "groups": [
+        ""
+      ],
+      "active": true
+    },
+    "PROF": {
+      "name": "Profesorado",
+      "zone": "CAF",
+      "groups": [
+        ""
+      ],
+      "active": true
+    },
+    "PND": {
+      "name": "Personal no docente",
+      "zone": "CAF",
+      "groups": [
+        ""
+      ],
+      "active": true
+    },
+    "OTROS": {
+      "name": "Otros",
+      "zone": "CAF",
+      "groups": [
+        ""
+      ],
+      "active": true
+    }
+  },
+  "zones": {
+    "ESO": "Patio de la ESO",
+    "CAF": "Cafetería"
+  },
+  "categories": [
+    "Tostadas",
+    "Bocadillos"
+  ],
+  "settings": {
+    "limitUser": 3,
+    "limitDay": 0,
+    "limitESO": 0,
+    "limitCAF": 0,
+    "advance": 7,
+    "cutoff": "11:00",
+    "editCutoff": "10:30",
+    "pickupStart": "11:05",
+    "pickupEnd": "11:35",
+    "editMinutes": 30,
+    "weekend": false,
+    "allergyEnabled": false,
+    "enabled": true,
+    "announcement": ""
+  },
+  "closed": {}
+}
