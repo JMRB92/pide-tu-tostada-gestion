@@ -1,3 +1,4 @@
+// Data protocol remains 1.04; UI release 1.05 does not change order schema or rules.
 export const VERSION='1.04';
 export const MAX_UNITS=8;
 export const TZ='Europe/Madrid';
