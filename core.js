@@ -1,4 +1,4 @@
-export const VERSION='1.03';
+export const VERSION='1.04';
 export const MAX_UNITS=8;
 export const TZ='Europe/Madrid';
 export const ALLERGENS=['Cereales con gluten','Crustáceos','Huevos','Pescado','Cacahuetes','Soja','Leche','Frutos de cáscara','Apio','Mostaza','Sésamo','Sulfitos','Altramuces','Moluscos'];
@@ -31,3 +31,7 @@ export function applyLedger(l,old,next,date){const r=structuredClone(l||emptyLed
 export function checkCapacity(l,d){if(l.ESO<0||l.CAF<0)throw Error('Contador inconsistente. Contacta con cafetería.');if(d.limitDay&&l.ESO+l.CAF>d.limitDay)throw Error('Capacidad diaria agotada.');for(const z of ['ESO','CAF'])if(d['limit'+z]&&l[z]>d['limit'+z])throw Error('Capacidad de recogida agotada.');for(const [id,n] of Object.entries(l.products))if(d.products[id]?.limit&&n>d.products[id].limit)throw Error('Producto agotado: '+d.products[id].name)}
 export function aggregate(orders,products){const r={requested:0,delivered:0,zones:{}};for(const o of orders){if(o.test)continue;const z=r.zones[o.zone]??={};o.units.forEach((id,i)=>{const x=z[id]??={name:products?.[id]?.name||id,requested:0,delivered:0};x.requested++;r.requested++;if(Object.hasOwn(o.paid||{},String(i))){x.delivered++;r.delivered++}})}return r}
 export function csv(rows){return '\uFEFF'+rows.map(r=>r.map(v=>'"'+String(v??'').replace(/^[=+\-@\t\r]/,"'$&").replace(/"/g,'""')+'"').join(';')).join('\r\n')}
+
+// Public status contains only operational information, never student data.
+export function availableDates(status,now=Date.now(),editing=false){return (status?.available||[]).filter(x=>x.date>=today(new Date(now))&&now>=x.opensAt.toMillis()&&now<(editing?Math.min(x.cutoffAt.toMillis(),x.editAt.toMillis()):x.cutoffAt.toMillis())).map(x=>x.date)}
+export function validSummary(s,date){if(!s||s.date!==date||!Number.isInteger(s.requested)||!Number.isInteger(s.delivered)||s.requested<0||s.delivered<0||s.delivered>s.requested||!s.zones||typeof s.zones!=='object')return false;let requested=0,delivered=0;for(const z of Object.values(s.zones)){for(const p of Object.values(z)){if(!Number.isInteger(p.requested)||!Number.isInteger(p.delivered)||p.requested<0||p.delivered<0||p.delivered>p.requested)return false;requested+=p.requested;delivered+=p.delivered}}return requested===s.requested&&delivered===s.delivered}

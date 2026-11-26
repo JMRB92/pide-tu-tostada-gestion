@@ -1,5 +1,5 @@
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
-import {initializeAuth,browserLocalPersistence,inMemoryPersistence,signInAnonymously,signInWithEmailAndPassword,onAuthStateChanged,signOut} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
+import {initializeAuth,browserLocalPersistence,browserSessionPersistence,inMemoryPersistence,signInAnonymously,signInWithEmailAndPassword,onAuthStateChanged,signOut} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
 import {getFirestore,doc,collection,getDoc,getDocFromServer,getDocs,getDocsFromServer,documentId,query,where,onSnapshot,setDoc,updateDoc,deleteDoc,runTransaction,writeBatch,serverTimestamp,Timestamp} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import {initializeAppCheck,ReCaptchaV3Provider} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app-check.js';
 import {VERSION,MAX_UNITS,today,identity,code,emptyLedger,applyLedger,checkCapacity,canEdit,active,normal,reservedUnits} from './core.js';
@@ -8,7 +8,7 @@ const app=initializeApp({apiKey:'AIzaSyA76crz6KOwbfzzBsIOr6HDD6uAYT6prVI',authDo
 // Fill with the public reCAPTCHA v3 site key only after registering this web app in App Check.
 const APP_CHECK_SITE_KEY='';
 if(APP_CHECK_SITE_KEY)initializeAppCheck(app,{provider:new ReCaptchaV3Provider(APP_CHECK_SITE_KEY),isTokenAutoRefreshEnabled:true});
-export const auth=initializeAuth(app,{persistence:inMemoryPersistence}),db=getFirestore(app);
+export const auth=initializeAuth(app,{persistence:browserSessionPersistence}),db=getFirestore(app);
 export {signInAnonymously,signInWithEmailAndPassword,onAuthStateChanged,signOut,doc,collection,getDoc,getDocFromServer,getDocs,getDocsFromServer,documentId,query,where,onSnapshot,setDoc,updateDoc,deleteDoc,runTransaction,writeBatch,serverTimestamp,Timestamp};
 export const ref=(...p)=>doc(db,...p);
 export const col=(...p)=>collection(db,...p);
@@ -20,15 +20,16 @@ export async function enterCode(s){const hash=await sha(s.trim()); await setDoc(
 export async function dayRead(d){const x=await getDocFromServer(ref('days',d));if(!x.exists())throw Error('Fecha no disponible. Contacta con cafetería.');return x.data()}
 export async function grant(id,secret){const raw=cleanSecret(secret);if(raw.length!==32)throw Error('Contraseña incorrecta.');const hash=await sha(raw);await setDoc(ref('orders',id,'grants',auth.currentUser.uid),{hash,at:serverTimestamp()});}
 export async function recover(secret){const raw=cleanSecret(secret);if(raw.length!==32)throw Error('Contraseña incorrecta.');const hash=await sha(raw);const r=await getDocFromServer(ref('recovery',hash));if(!r.exists())throw Error('No existe el pedido o ha caducado.');const id=r.data().id;await grant(id,secret);return readOrder(id)}
-export async function readOrder(id){const s=await getDocFromServer(ref('orders',id));if(!s.exists())throw Error('Pedido no disponible.');return s.data()}
+export async function findOwnOrder(id){const s=await getDocFromServer(ref('orders',id));return s.exists()?s.data():null}
+export async function readOrder(id){const o=await findOwnOrder(id);if(!o)throw Error('Pedido no disponible.');return o}
 const data=(s,def)=>s.exists()?s.data():def;
 export async function saveOrder(input,{existingId=null,secret=null,admin=false,operationId=null,mode='save'}={}){
  const uid=auth.currentUser.uid,id=existingId||operationId||randomHex(), raw=existingId?null:(secret?cleanSecret(secret):randomHex()), hash=raw?await sha(raw):null;
  if(!existingId&&(!raw||raw.length!==32))throw Error('Identificador de solicitud inválido.');
  const orderRef=ref('orders',id);
  const result=await runTransaction(db,async tx=>{
-   // A non-owner cannot read an absent order: create does not read it (transaction create is guarded by rules).
-   let old=null;if(existingId||admin){const o=await tx.get(orderRef);old=data(o,null);if(existingId&&!old)throw Error('Pedido eliminado.');if(!existingId&&old)return old;}
+   // Missing random IDs can be checked; existing orders are restricted to owner or authorized recovery.
+   let old=null;const existing=await tx.get(orderRef);old=data(existing,null);if(existingId&&!old)throw Error('Pedido eliminado.');if(!existingId&&old){if(!admin&&old.owner!==uid)throw Error('Solicitud no autorizada.');return old;}
    const date=mode==='cancel'?old.date:input.date;
    const dates=[...new Set([date,old?.date].filter(Boolean))];
    const dayDocs={};for(const d of dates){const snap=await tx.get(ref('days',d));if(!snap.exists())throw Error('Fecha no disponible.');dayDocs[d]=snap.data()}
@@ -51,7 +52,7 @@ export async function saveOrder(input,{existingId=null,secret=null,admin=false,o
     if(units.some(p=>!day.products[p]||(!day.products[p].active&&!(admin&&old?.units.includes(p)&&old.date===date))))throw Error('Producto no disponible.');
     if(old&&Object.keys(old.paid||{}).length)throw Error('No se puede sustituir un pedido con cobros. Corrige primero la entrega.');
    }
-   const next=mode==='cancel'?{...old,cancelled:true,cancelReason:admin?(input.reason||'Cafetería'):'Alumno',version:old.version+1,updatedAt:serverTimestamp()}:{id,owner:old?.owner||uid,date,zone,seq:old?.seq||0,name,surname,course:person.course,group:person.group,identity:ident,quotaKey:qkey,units,initialPrices:units.map(p=>day.products[p].price),notes:input.notes||'',allergy:day.allergyEnabled?input.allergy||'':'',prepared:[],paid:{},incident:false,incidentReason:'',cancelled:false,cancelReason:'',createdAt:old?.createdAt||serverTimestamp(),updatedAt:serverTimestamp(),version:old?old.version+1:1,test:false};
+   const next=mode==='cancel'?{...old,clientVersion:VERSION,cancelled:true,cancelReason:admin?(input.reason||'Cafetería'):'Alumno',version:old.version+1,updatedAt:serverTimestamp()}:{id,clientVersion:VERSION,owner:old?.owner||uid,date,zone,seq:old?.seq||0,name,surname,course:person.course,group:person.group,identity:ident,quotaKey:qkey,units,initialPrices:units.map(p=>day.products[p].price),notes:input.notes||'',allergy:day.allergyEnabled?input.allergy||'':'',prepared:[],paid:{},incident:false,incidentReason:'',cancelled:false,cancelReason:'',createdAt:old?.createdAt||serverTimestamp(),updatedAt:serverTimestamp(),version:old?old.version+1:1,test:false};
    if(old&&old.cancelled&&mode!=='cancel')throw Error('Pedido cancelado.');
    if(!admin&&old&&mode!=='cancel'&&(old.name!==name||old.surname!==surname||old.course!==person.course||old.group!==person.group))throw Error('No se permite cambiar la identidad.');
    const ledgers={};for(const d of dates)ledgers[d]=data(await tx.get(ref('daily',d)),emptyLedger());
