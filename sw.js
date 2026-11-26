@@ -1,4 +1,4 @@
-const PREFIX="tostada-pages-gestion-",CACHE=PREFIX+'106';
+const PREFIX="tostada-pages-gestion-",CACHE=PREFIX+'107';
 const FILES=["./", "./index.html", "./style.css", "./core.js", "./firebase.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./admin.js", "./seed.json", "./bootstrap.js"];
 const scope=new URL(self.registration.scope);
 const allowed=new Set(FILES.map(p=>new URL(p,scope).href));

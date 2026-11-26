@@ -1,5 +1,5 @@
-// Data protocol v1.06; existing order documents retain their format.
-export const VERSION='1.06';
+// Data protocol v1.07; existing order documents retain their format.
+export const VERSION='1.07';
 export const MAX_UNITS=8;
 export const TZ='Europe/Madrid';
 export const ALLERGENS=['Cereales con gluten','Crustáceos','Huevos','Pescado','Cacahuetes','Soja','Leche','Frutos de cáscara','Apio','Mostaza','Sésamo','Sulfitos','Altramuces','Moluscos'];
@@ -19,7 +19,27 @@ export const emptyLedger=()=>({ESO:0,CAF:0,seqESO:0,seqCAF:0,products:{},last:''
 export const active=o=>o&&!o.cancelled;
 export const reservedUnits=o=>!o?[]:o.cancelled?o.units.filter((_,i)=>Object.hasOwn(o.paid||{},String(i))):o.units;
 export function merge(a,b){const r=structuredClone(a);for(const [k,v] of Object.entries(b||{})){r[k]=v&&typeof v==='object'&&!Array.isArray(v)&&r[k]&&typeof r[k]==='object'&&!Array.isArray(r[k])?merge(r[k],v):structuredClone(v)}return r}
-export function effective(master,day){return (master.changes||[]).filter(x=>x.date<=day).sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id)).reduce((a,c)=>merge(a,c.patch),structuredClone(master.base))}
+export function effective(master,day){
+ const b=(master.changes||[]).filter(x=>x.date<=day).sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id)).reduce((a,c)=>merge(a,c.patch),structuredClone(master.base));
+ // Retirements take precedence over scheduled edits; keep historical metadata for existing orders.
+ for(const x of (master.retirements||[]))if(x.date<=day){if(x.kind==='product'&&b.products[x.id])b.products[x.id]={...b.products[x.id],active:false,retired:true};if(x.kind==='course'&&b.courses[x.id])b.courses[x.id]={...b.courses[x.id],active:false,retired:true};if(x.kind==='category')b.categories=b.categories.filter(c=>c!==x.id)}
+ return b;
+}
+export function retireCatalogue(master,kind,id,date){
+ const b=effective(master,date);
+ if(kind==='product'&&(!b.products[id]||b.products[id].retired))throw Error('El producto ya no está en el catálogo.');
+ if(kind==='course'&&(!b.courses[id]||b.courses[id].retired))throw Error('El curso ya no está disponible.');
+ if(kind==='category'){
+  if(!b.categories.includes(id))throw Error('La categoría ya no existe.');
+  const dates=[date,...(master.changes||[]).filter(x=>x.date>date).map(x=>x.date)];
+  if(dates.some(d=>Object.values(effective(master,d).products).some(p=>!p.retired&&p.category===id)))throw Error('Mueve o elimina antes los productos de esta categoría, incluidos los cambios programados.');
+ }
+ if(!['product','course','category'].includes(kind))throw Error('Elemento no válido.');
+ return {...master,retirements:[...(master.retirements||[]),{kind,id,date}]};
+}
+export const catalogueProducts=(d,category='all')=>sortedProducts(d).filter(([,p])=>!p.retired&&(category==='all'||p.category===category));
+export const catalogueCourses=d=>Object.entries(d?.courses||{}).filter(([,c])=>!c.retired);
+
 export function dayConfig(master,day){const b=effective(master,day),s=b.settings;const weekend=[0,6].includes(new Date(day+'T12:00:00Z').getUTCDay());return {date:day,open:s.enabled&&(!weekend||s.weekend)&&!b.closed[day],products:b.products,courses:b.courses,zones:b.zones,categories:b.categories,limitUser:s.limitUser,limitDay:s.limitDay,limitESO:s.limitESO,limitCAF:s.limitCAF,allergyEnabled:s.allergyEnabled,editMinutes:s.editMinutes,opensAt:localInstant(addDays(day,-s.advance)),cutoffAt:localInstant(day,s.cutoff),editAt:localInstant(day,s.editCutoff),pickupStart:s.pickupStart,pickupEnd:s.pickupEnd,announcement:s.announcement,revision:master.revision||1}}
 export function priceOf(o,i,d){return Object.hasOwn(o.paid||{},String(i))?o.paid[i]:(d?.products?.[o.units[i]]?.price??o.initialPrices?.[i]??0)}
 export const paidTotal=o=>Object.values(o.paid||{}).reduce((a,b)=>a+b,0);
