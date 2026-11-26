@@ -48,7 +48,7 @@ export async function saveOrder(input,{existingId=null,secret=null,admin=false,o
    if(mode!=='cancel'){
     if(!admin&&(!day.open||Date.now()<day.opensAt.toMillis()||Date.now()>=day.cutoffAt.toMillis()))throw Error('Pedidos cerrados para esa fecha.');
     if(!admin&&old&&Date.now()>=day.editAt.toMillis())throw Error('Plazo de cambios finalizado para la nueva fecha.');
-    if(!units.length||units.length>MAX_UNITS)throw Error('Cantidad no válida.');
+    if(!units.length||units.length>MAX_UNITS)throw Error('Máximo de 5 unidades por pedido.');
     if(units.some(p=>!day.products[p]||(!day.products[p].active&&!(admin&&old?.units.includes(p)&&old.date===date))))throw Error('Producto no disponible.');
     if(old&&Object.keys(old.paid||{}).length)throw Error('No se puede sustituir un pedido con cobros. Corrige primero la entrega.');
    }
@@ -59,7 +59,7 @@ export async function saveOrder(input,{existingId=null,secret=null,admin=false,o
    const keys=[...new Set([next.quotaKey,old?.quotaKey].filter(Boolean))],quotas={};for(const k of keys)quotas[k]=data(await tx.get(ref('limits',k)),{used:0,last:'',lastVersion:0});
    for(const d of dates){const l=applyLedger(ledgers[d],old,next,d);if(active(next)&&next.date===d)checkCapacity(l,dayDocs[d]);ledgers[d]=l;}
    if(!old||old.date!==next.date||old.zone!==next.zone)next.seq=ledgers[next.date]['seq'+next.zone];
-   for(const k of keys){const q=quotas[k];const delta=(next&&next.quotaKey===k?reservedUnits(next).length:0)-(old&&old.quotaKey===k?reservedUnits(old).length:0);q.used+=delta;q.last=id;q.lastVersion=next.version;if(q.used<0)throw Error('Contador de alumno inconsistente.');if(delta>0&&q.used>day.limitUser&&!admin)throw Error('Has alcanzado el límite diario.');}
+   for(const k of keys){const q=quotas[k];const delta=(next&&next.quotaKey===k?reservedUnits(next).length:0)-(old&&old.quotaKey===k?reservedUnits(old).length:0);q.used+=delta;q.last=id;q.lastVersion=next.version;if(q.used<0)throw Error('Contador de alumno inconsistente.');if(delta>0&&q.used>Math.min(day.limitUser,MAX_UNITS)&&!admin)throw Error('Has alcanzado el límite diario.');}
    for(const d of dates)tx.set(ref('daily',d),ledgers[d]);for(const k of keys)tx.set(ref('limits',k),quotas[k]);
    tx.set(orderRef,next);if(!old){tx.set(ref('privateOrders',id),{hash});tx.set(ref('recovery',hash),{id});}
    return next;

@@ -1,6 +1,6 @@
-// Data protocol v1.07; existing order documents retain their format.
-export const VERSION='1.07';
-export const MAX_UNITS=8;
+// Data protocol v1.08; existing order documents retain their format.
+export const VERSION='1.08';
+export const MAX_UNITS=5;
 export const TZ='Europe/Madrid';
 export const ALLERGENS=['Cereales con gluten','Crustáceos','Huevos','Pescado','Cacahuetes','Soja','Leche','Frutos de cáscara','Apio','Mostaza','Sésamo','Sulfitos','Altramuces','Moluscos'];
 export const money=n=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format((n||0)/100);
@@ -23,6 +23,7 @@ export function effective(master,day){
  const b=(master.changes||[]).filter(x=>x.date<=day).sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id)).reduce((a,c)=>merge(a,c.patch),structuredClone(master.base));
  // Retirements take precedence over scheduled edits; keep historical metadata for existing orders.
  for(const x of (master.retirements||[]))if(x.date<=day){if(x.kind==='product'&&b.products[x.id])b.products[x.id]={...b.products[x.id],active:false,retired:true};if(x.kind==='course'&&b.courses[x.id])b.courses[x.id]={...b.courses[x.id],active:false,retired:true};if(x.kind==='category')b.categories=b.categories.filter(c=>c!==x.id)}
+ b.settings.limitUser=Math.max(1,Math.min(MAX_UNITS,Number.isFinite(b.settings.limitUser)?Math.floor(b.settings.limitUser):3));
  return b;
 }
 export function retireCatalogue(master,kind,id,date){
