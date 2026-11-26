@@ -1,5 +1,5 @@
-// Data protocol remains 1.04; UI release 1.05 does not change order schema or rules.
-export const VERSION='1.04';
+// Data protocol v1.06; existing order documents retain their format.
+export const VERSION='1.06';
 export const MAX_UNITS=8;
 export const TZ='Europe/Madrid';
 export const ALLERGENS=['Cereales con gluten','Crustáceos','Huevos','Pescado','Cacahuetes','Soja','Leche','Frutos de cáscara','Apio','Mostaza','Sésamo','Sulfitos','Altramuces','Moluscos'];
@@ -36,3 +36,12 @@ export function csv(rows){return '\uFEFF'+rows.map(r=>r.map(v=>'"'+String(v??'')
 // Public status contains only operational information, never student data.
 export function availableDates(status,now=Date.now(),editing=false){return (status?.available||[]).filter(x=>x.date>=today(new Date(now))&&now>=x.opensAt.toMillis()&&now<(editing?Math.min(x.cutoffAt.toMillis(),x.editAt.toMillis()):x.cutoffAt.toMillis())).map(x=>x.date)}
 export function validSummary(s,date){if(!s||s.date!==date||!Number.isInteger(s.requested)||!Number.isInteger(s.delivered)||s.requested<0||s.delivered<0||s.delivered>s.requested||!s.zones||typeof s.zones!=='object')return false;let requested=0,delivered=0;for(const z of Object.values(s.zones)){for(const p of Object.values(z)){if(!Number.isInteger(p.requested)||!Number.isInteger(p.delivered)||p.requested<0||p.delivered<0||p.delivered>p.requested)return false;requested+=p.requested;delivered+=p.delivered}}return requested===s.requested&&delivered===s.delivered}
+
+// Presentation order only: never reorder persisted unit indexes (payments/preparation).
+export function productCompare(a,b,d={}){const ps=d?.products||{},p=ps[a]||{},q=ps[b]||{},cats=d?.categories||[];const rank=c=>{const i=cats.indexOf(c);return i<0?cats.length:i};return rank(p.category)-rank(q.category)||String(p.category||'Otros').localeCompare(String(q.category||'Otros'),'es')||(p.price??Infinity)-(q.price??Infinity)||String(p.name||a).localeCompare(String(q.name||b),'es',{sensitivity:'base'})||String(a).localeCompare(String(b),'es');}
+export const sortedProducts=(d)=>Object.entries(d?.products||{}).sort(([a],[b])=>productCompare(a,b,d));
+export const sortedGroups=(units,d)=>Object.entries(grouped(units)).sort(([a],[b])=>productCompare(a,b,d));
+export const sortedUnits=(units,d)=>units.map((id,i)=>({id,i})).sort((a,b)=>productCompare(a.id,b.id,d)||a.i-b.i);
+export function productCategory(id,d){return d?.products?.[id]?.category||'Otros';}
+
+export function categoryGroups(rows,d,idOf=x=>x[0]){const groups=new Map();for(const row of rows){const cat=productCategory(idOf(row),d);if(!groups.has(cat))groups.set(cat,[]);groups.get(cat).push(row)}return [...groups];}
