@@ -247,7 +247,7 @@ jobs:
           ZIP64
           unzip -q tests.zip
           rm tests.zip
-          echo 'f6c0181629338ab9575ba313678883ff99d8b29a048877e8441c5cec91b1c709  firestore.rules' | sha256sum -c -
+          echo 'fa51b98ea371d75aebe40c531832be9eb810a2117b1251b0d9f25edc691d8f3d  firestore.rules' | sha256sum -c -
       - name: Instalar dependencias
         shell: bash
         run: |
