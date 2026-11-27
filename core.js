@@ -66,3 +66,33 @@ export const sortedUnits=(units,d)=>units.map((id,i)=>({id,i})).sort((a,b)=>prod
 export function productCategory(id,d){return d?.products?.[id]?.category||'Otros';}
 
 export function categoryGroups(rows,d,idOf=x=>x[0]){const groups=new Map();for(const row of rows){const cat=productCategory(idOf(row),d);if(!groups.has(cat))groups.set(cat,[]);groups.get(cat).push(row)}return [...groups];}
+
+// Presentation helpers; data protocol remains v1.08.
+const COURSE_ORDER=['1ESO','2ESO','3ESO','4ESO','1BACH','2BACH','1DIVER','2DIVER','FPB','ESPA','1MC','2MC','PROF','PND','OTROS'];
+export function courseCompare(a,b){const rank=x=>{const i=COURSE_ORDER.indexOf(x);return i<0?100:i};return rank(a)-rank(b)||String(a).localeCompare(String(b),'es',{numeric:true});}
+export function sortedCourses(d){return Object.entries(d?.courses||{}).sort(([a],[b])=>courseCompare(a,b));}
+export function fullDate(d){return new Intl.DateTimeFormat('es-ES',{weekday:'long',day:'numeric',month:'long',timeZone:TZ}).format(new Date(d+'T12:00:00Z'));}
+// Never mark a partial, cancelled, archived or wrong-zone order as paid automatically.
+export function rapidDelivery(o,d,{date,zone='all',station=''}={}){
+ if(!o)return {kind:'missing',message:'Pedido no encontrado'};
+ if(o.cancelled||o.removed)return {kind:'cancelled',message:'Pedido cancelado o eliminado'};
+ if(o.date!==date)return {kind:'date',message:'Pedido de otro día'};
+ if(zone!=='all'&&o.zone!==zone)return {kind:'zone',message:'Pedido de otra zona'};
+ if(!d||d.archiving||d.archived)return {kind:'archived',message:'Fecha no disponible'};
+ const paid=Object.keys(o.paid||{}).length;
+ if(o.units?.length&&paid===o.units.length)return {kind:'already',message:'Pedido ya entregado y pagado'};
+ if(paid||o.incident||o.allergy||!o.units?.length||o.units.length>MAX_UNITS)return {kind:'manual',message:'Requiere revisión manual'};
+ const prices=o.units.map((_,i)=>priceOf(o,i,d));
+ if(prices.some(n=>!Number.isInteger(n)||n<0))return {kind:'manual',message:'Revisa el importe'};
+ const next={...o,prepared:o.units.map((_,i)=>i),paid:Object.fromEntries(prices.map((n,i)=>[String(i),n])),markerReset:false,version:o.version+1,deliveryStation:station};
+ return {kind:'paid',message:'Entregado y pagado',next,amount:prices.reduce((a,b)=>a+b,0)};
+}
+
+export async function commitRapidDelivery({transact,reference,timestamp,id,collection='orders',date,zone,station}){
+ const r=reference(collection,id);
+ return transact(async tx=>{const snap=await tx.get(r),o=snap.exists()?snap.data():null;
+ if(!o)return {...rapidDelivery(null,null,{date,zone}),before:null};
+ const dd=await tx.get(reference('days',o.date));const res=rapidDelivery(o,dd.exists()?dd.data():null,{date,zone,station});
+ if(res.kind==='paid')tx.set(r,{...res.next,deliveredAt:timestamp(),updatedAt:timestamp()});
+ return {...res,before:o};});
+}

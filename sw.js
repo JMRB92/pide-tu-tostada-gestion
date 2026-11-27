@@ -1,5 +1,5 @@
-const PREFIX="tostada-pages-gestion-",CACHE=PREFIX+'108';
-const FILES=["./", "./index.html", "./style.css", "./core.js", "./firebase.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./admin.js", "./seed.json", "./bootstrap.js"];
+const PREFIX="tostada-pages-gestion-",CACHE=PREFIX+'109';
+const FILES=["./", "./index.html", "./style.css", "./core.js", "./firebase.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./admin.js", "./seed.json", "./bootstrap.js", "./qr-local.js"];
 const scope=new URL(self.registration.scope);
 const allowed=new Set(FILES.map(p=>new URL(p,scope).href));
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES))));
